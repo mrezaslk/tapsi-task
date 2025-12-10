@@ -1,159 +1,113 @@
-# معماری پروژه (Architecture)
+# معماری پروژه
 
-این پروژه یک پیاده‌سازی **Server-Side Rendering (SSR)** با React و Node.js است که ترکیبی از SSR + SPA behavior + API دارد.
+یک اپلیکیشن React با SSR سفارشی که ترکیبی از SSR + SPA behavior + API است.
 
 ---
 
 ## 🧰 Tech Stack
 
-- **Node.js + Express** برای سرور
-- **React 19** برای UI (SSR + Hydration)
-- **React Router v7** برای Routing
-- **Vite** برای باندل سمت کلاینت (dev و build)
-- **TypeScript** برای type-safety
-- **Tailwind CSS (v4)** برای طراحی موبایل‌محور
+- Node.js + Express
+- React 19 (SSR + Hydration)
+- React Router v7
+- Vite
+- TypeScript
+- Tailwind CSS v4
 
 ---
 
 ## 📁 ساختار پروژه
 
-```txt
-.
-├── package.json
-├── vite.config.mjs                 # تنظیمات Vite (کلاینت + Tailwind)
-├── tsconfig.json
-├── src
-│   ├── shared                     # کد مشترک بین کلاینت و سرور
-│   │   └── types.ts               # تعریف Type هایی مثل Item, InitialData
-│   ├── server
-│   │   ├── index.ts               # ورود اصلی سرور (Express)
-│   │   ├── db.ts                  # منبع داده ساده در حافظه (in-memory)
-│   │   ├── ssr.tsx                # تابع renderHtml (SSR + تزریق InitialData)
-│   │   └── etag.ts                # تولید ETag از روی HTML
-│   └── client
-│       ├── main.tsx               # نقطه ورود کلاینت (hydrateRoot)
-│       ├── App.tsx                 # ریشه اپ، شامل BrowserRouter
-│       ├── style.css               # استایل Tailwind
-│       ├── components/             # کامپوننت‌های قابل استفاده مجدد
-│       ├── context/                # Context های React
-│       ├── hooks/                  # Custom Hooks
-│       ├── pages/                  # صفحات اصلی اپلیکیشن
-│       ├── Routes/                 # تعریف Routeها
-│       └── constant/               # ثوابت و تنظیمات
+```
+src/
+├── shared/types.ts          # Typeهای مشترک
+├── server/                  # SSR + API
+│   ├── index.ts
+│   ├── db.ts
+│   ├── ssr.tsx
+│   └── etag.ts
+└── client/                  # React Client
+    ├── main.tsx
+    ├── App.tsx
+    ├── components/
+    ├── context/
+    ├── hooks/
+    ├── pages/
+    └── Routes/
 ```
 
 ---
 
-## 1) معماری کلی
+## معماری کلی
 
-پروژه از سه لایه اصلی تشکیل شده است:
+سه لایه اصلی:
 
-### **Shared Layer (`src/shared/`)**
-- شامل typeهای مشترک بین سرور و کلاینت (مثل `Item`, `InitialData`)
-- جلوگیری از تکرار typeها و هماهنگی بین دو سمت
-
-### **Server Layer (`src/server/`)**
-- اجرای SSR با `ReactDOMServer.renderToString`
-- ساخت `InitialData` بر اساس route و تزریق به HTML
-- API: `GET /api/items`, `GET /api/items/:id`
-- پیاده‌سازی ETag برای پاسخ‌های SSR (تولید hash از HTML، برگرداندن `304 Not Modified`)
-
-### **Client Layer (`src/client/`)**
-- اجرای React روی مرورگر با `hydrateRoot`
-- استفاده از داده SSR از طریق `InitialDataContext`
-- React Router برای ناوبری سمت کلاینت
-- در ناوبری داخلی (SPA)، داده از API دریافت می‌شود
+**Shared:** Typeهای مشترک بین سرور و کلاینت  
+**Server:** SSR با `ReactDOMServer.renderToString`، API endpoints، ETag  
+**Client:** Hydration با `hydrateRoot`، React Router، استفاده از InitialData
 
 ---
 
-## 2) جریان SSR → Hydration
+## جریان SSR → Hydration
 
-1. کاربر یک URL مثل `/items/2` را باز می‌کند
-2. سرور داده را می‌خواند، React را با `StaticRouter` رندر می‌کند و HTML + InitialData تولید می‌کند
-3. مرورگر HTML کامل را می‌بیند (بدون انتظار برای JS)
-4. جاوااسکریپت کلاینت لود می‌شود
-5. `hydrateRoot` روی HTML موجود اجرا می‌شود و UI React فعال می‌شود
-
----
-
-## 3) ETag & Cache Validation
-
-برای پاسخ SSR:
-- یک hash از محتوای HTML تولید می‌شود و در هدر `ETag` قرار می‌گیرد
-- اگر درخواست مجدد با `If-None-Match` ارسال شود:
-  - در صورت برابر بودن → `304 Not Modified`
-  - در غیر این صورت → `200` + HTML جدید
-
-این کار باعث کاهش رندر غیرضروری و صرفه‌جویی در پهنای باند می‌شود.
+1. کاربر URL را باز می‌کند → سرور داده را می‌خواند
+2. React با `StaticRouter` رندر می‌شود → HTML + InitialData تولید می‌شود
+3. مرورگر HTML کامل را می‌بیند
+4. JS کلاینت لود می‌شود → `hydrateRoot` UI را فعال می‌کند
 
 ---
 
-## 4) رفتار داده‌ها (InitialData)
+## ETag
 
-**در رندر اولیه (SSR):** داده‌ها در سرور fetch می‌شوند، در HTML تزریق می‌شوند و کلاینت بدون fetch دوباره، صفحه را hydrate می‌کند.
-
-**در ناوبری داخلی (SPA):** React Router فقط route را عوض می‌کند. اگر InitialData مناسب صفحه جدید نباشد → fetch از API انجام می‌شود.
-
----
-
-## 5) Design Patterns Used
-
-در این پروژه چند الگوی معماری/دیزاین پترن استفاده شده که کمک می‌کنند SSR، مدیریت داده و سازمان‌دهی کد تمیزتر باشد:
-
-### **1. Separation of Concerns (SOC)**
-کد به سه لایه مجزا تقسیم شده است:
-- Server (SSR + API)
-- Client (React + Router + Hydration)
-- Shared (Types)
-
-این جداسازی باعث تست‌پذیری و توسعه‌پذیری بهتر می‌شود.
-
-### **2. Single Source of Truth**
-Typeها و مدل داده‌ها فقط یک‌بار در `src/shared/types` تعریف شده‌اند و کلاینت و سرور از همان استفاده می‌کنند.
-
-### **3. Context Provider Pattern**
-`InitialDataContext` برای این استفاده شده که:
-- داده‌ی SSR شده فقط یک‌بار تزریق شود
-- در کلاینت بدون props drilling در دسترس باشد
-- از double-fetch جلوگیری شود
-
-### **4. Factory / Builder Pattern (در SSR HTML Rendering)**
-تابع `renderHtml` نقش یک **builder** را دارد:
-- سرور → JSX → HTML
-- تزریق InitialData
-- اضافه‌کردن assetها (در dev یا prod)
-
-### **5. Strategy Pattern (Routing Strategy)**
-برای SSR و Client Routing از دو استراتژی مختلف استفاده شده:
-- سرور → `StaticRouter`
-- کلاینت → `BrowserRouter`
-
-اما هر دو یک ساختار route مشترک را می‌خوانند (`AppRoutes`).
-
-### **6. Cache Validation Pattern (ETag)**
-از ETag به‌عنوان یک **content-based caching strategy** استفاده شده که معادل پیاده‌سازی الگوی **Cache Validation** در HTTP است.
-
-### **7. Progressive Enhancement**
-صفحه ابتدا با HTML کامل (SSR) نمایش داده می‌شود و سپس React با **Hydration** قابلیت‌های تعاملی را اضافه می‌کند.
+برای هر پاسخ SSR:
+- Hash از HTML تولید می‌شود → در `ETag` header قرار می‌گیرد
+- درخواست مجدد با `If-None-Match` → اگر برابر باشد `304 Not Modified`، در غیر این صورت `200` + HTML جدید
 
 ---
 
-## 6) UI – Mobile-first
+## InitialData
 
-- کل UI با TailwindCSS طراحی شده
-- ساختار اپ شبیه اپ موبایل (`max-w-xl`, `mx-auto`)
-- روی دسکتاپ به‌صورت centered mobile-view نمایش داده می‌شود
+**SSR:** داده در سرور fetch می‌شود، در HTML تزریق می‌شود، کلاینت بدون fetch دوباره hydrate می‌کند.
 
----
-
-## 7) نکات قابل بهبود
-
-- استفاده از manifest Vite برای بارگذاری CSS و JS در production
-- اضافه‌کردن caching سمت کلاینت (React Query)
-- اضافه‌کردن تست‌های واحد
-- افزودن error boundaryها و skeleton loaders
+**SPA Navigation:** React Router route را عوض می‌کند. اگر InitialData مناسب نباشد → fetch از API.
 
 ---
 
-این معماری تمرکز دارد روی:  
-**SSR واقعی، جلوگیری از double-fetch، ETag، و سادگی در ساختار.**
+## Design Patterns
+
+### 1. Separation of Concerns
+سه لایه مجزا: Server, Client, Shared
+
+### 2. Single Source of Truth
+Typeها فقط یک‌بار در `shared/types.ts` تعریف شده‌اند
+
+### 3. Context Provider Pattern
+`InitialDataContext` برای جلوگیری از props drilling و double-fetch
+
+### 4. Factory/Builder Pattern
+`renderHtml` HTML را step-by-step می‌سازد: JSX → HTML → تزریق InitialData → اضافه کردن assets
+
+### 5. Strategy Pattern
+- Server: `StaticRouter`
+- Client: `BrowserRouter`
+هر دو از `AppRoutes` استفاده می‌کنند
+
+### 6. Cache Validation Pattern
+ETag برای content-based caching
+
+### 7. Progressive Enhancement
+HTML کامل اول (SSR) → سپس Hydration برای تعامل
+
+---
+
+## UI
+
+Mobile-first با TailwindCSS. روی دسکتاپ به صورت centered mobile-view نمایش داده می‌شود.
+
+---
+
+## قابل بهبود
+
+- Vite manifest برای production
+- Client-side caching (React Query)
+- Unit tests
+- Error boundaries و skeleton loaders

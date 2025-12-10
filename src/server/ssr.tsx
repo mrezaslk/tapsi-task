@@ -19,7 +19,7 @@ export function renderHtml(url: string, initialData: initialData) {
   <html lang="fa">
     <head>
       <meta charset="utf-8" />
-      <title>Tap30 SSR Task</title>
+      <title>تپسی دکتر:مشاوره آنلاین|لیست پزشکان انلاین</title>
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <!-- Vite dev client for HMR/react-refresh -->
       <script type="module" src="http://localhost:5173/@vite/client"></script>
